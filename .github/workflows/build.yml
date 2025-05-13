@@ -1,68 +1,87 @@
-name: Build Project
+name: Build FFmpeg (macOS ARM64 static)
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
       - master
-    paths-ignore:
-      - '**.md'
     tags:
       - '*'
+    paths-ignore:
+      - '**.md'
   pull_request:
     paths-ignore:
       - '**.md'
+
 jobs:
   build:
-    name: Build-FFmpeg-${{ matrix.tag }}
-    runs-on: ${{ matrix.os }}
+    name: Build-FFmpeg-${{ matrix.tag }}-arm64
+    runs-on: macos-14          # M1-powered ARM64 runner
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - os: macos-11
-            tag: n5.0.1
-    steps:
-      - name: CleanOldArtifact
-        uses: kolpav/purge-artifacts-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          expire-in: 15days
+          - tag: n5.0.1
 
-      - name: Install Dependence
-        id: install-dependence
-        shell: pwsh
+    env:
+      # ensure all C/C++ builds target arm64
+      CFLAGS:  "-arch arm64"
+      LDFLAGS: "-arch arm64"
+      # install prefix
+      PREFIX:  "${{ github.workspace }}/ffmpeg_build"
+
+    steps:
+      - name: Checkout CI repo
+        uses: actions/checkout@v3
+
+      - name: Install Homebrew & tools
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install nasm
+          brew install nasm pkg-config yasm
 
-      - name: CheckOut
-        id: checkout
-        uses: actions/checkout@v3
-
-      - name: Clone FFmpeg
-        uses: actions/checkout@v3
-        with:
-          repository: 'FFmpeg/FFmpeg'
-          ref: ${{ matrix.tag }}
-          path: 'ffmpeg'
-
-      - name: Build project
-        id: build
-        shell: pwsh
+      - name: Clone FFmpeg source
         run: |
-          python3 make_compile.py --ffmpeg_dir ffmpeg --target_dir ffmpeg
-          python3 make_universal.py --dir ffmpeg
-          python3 package.py --dir ffmpeg --tag ${{ matrix.tag }}
+          git clone --depth 1 --branch ${{ matrix.tag }} https://github.com/FFmpeg/FFmpeg.git ffmpeg
 
-      - uses: actions/upload-artifact@v2
+      - name: Configure FFmpeg (static)
+        working-directory: ffmpeg
+        run: |
+          ./configure \
+            --prefix="$PREFIX" \
+            --disable-shared \
+            --enable-static \
+            --disable-debug \
+            --enable-pic \
+            --disable-doc \
+            --disable-programs                # only build libraries; we'll build the ffmpeg binary next
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Build ffmpeg binary
+        run: |
+          # Link against the static libs we just installed
+          gcc $CFLAGS $LDFLAGS \
+            -o ffmpeg \
+            ffmpeg/tools/ffmpeg.c \
+            -I"$PREFIX/include" \
+            -L"$PREFIX/lib" -lavformat -lavcodec -lavutil -lswresample -lswscale
+
+      - name: Strip and verify
+        run: |
+          strip ffmpeg
+          otool -L ffmpeg   # should only list system dylibs
+
+      - name: Package artifact
+        run: zip -j FFmpeg-${{ matrix.tag }}-arm64-static.zip ffmpeg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
         with:
-          name: FFmpeg-${{ matrix.tag }}
-          path: ${{ github.workspace }}/*.zip
+          name: FFmpeg-${{ matrix.tag }}-arm64-static
+          path: FFmpeg-${{ matrix.tag }}-arm64-static.zip
 
-      - name: Upload release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
         with:
-          files: |
-            ${{ github.workspace }}/*.zip
-            ${{ github.workspace }}/install.py
+          files: FFmpeg-${{ matrix.tag }}-arm64-static.zip
