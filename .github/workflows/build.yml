@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14-arm64
+    runs-on: macos-14
     strategy:
       matrix:
         include:
@@ -66,9 +66,3 @@ jobs:
         with:
           name: FFmpeg-${{ matrix.tag }}-arm64-static
           path: FFmpeg-${{ matrix.tag }}-arm64-static.zip
-
-      - name: Create GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: FFmpeg-${{ matrix.tag }}-arm64-static.zip
