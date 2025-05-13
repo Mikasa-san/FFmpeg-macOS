@@ -44,7 +44,9 @@ jobs:
             --disable-debug \
             --enable-pic \
             --disable-doc \
+            --disable-programs \
             --disable-ffplay \
+            --disable-avdevice \
             --disable-devices \
             --disable-libxcb \
             --disable-libxcb-shm \
@@ -52,7 +54,8 @@ jobs:
             --disable-libfreetype \
             --disable-libfontconfig \
             --disable-indev=qtkit \
-            --disable-indev=x11grab_xcb
+            --disable-indev=x11grab_xcb \
+            --disable-indev=x11grab
           make -j$(sysctl -n hw.ncpu)
           make install
 
