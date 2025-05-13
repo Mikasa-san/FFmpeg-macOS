@@ -34,7 +34,7 @@ jobs:
       - name: Clone FFmpeg source (default branch)
         run: git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
 
-      - name: Configure & build FFmpeg (fully static, no devices)
+      - name: Configure & build FFmpeg (fully static, no X11/libxcb)
         working-directory: ffmpeg
         run: |
           ./configure \
@@ -45,14 +45,21 @@ jobs:
             --enable-pic \
             --disable-doc \
             --disable-ffplay \
-            --disable-devices
+            --disable-devices \
+            --disable-libxcb \
+            --disable-libxcb-shm \
+            --disable-libxcb-xfixes \
+            --disable-libfreetype \
+            --disable-libfontconfig \
+            --disable-indev=qtkit \
+            --disable-indev=x11grab_xcb
           make -j$(sysctl -n hw.ncpu)
           make install
 
       - name: Strip & verify
         run: |
           strip "$PREFIX/bin/ffmpeg"
-          otool -L "$PREFIX/bin/ffmpeg"   # should only reference only system libraries
+          otool -L "$PREFIX/bin/ffmpeg"   # should only reference system libraries
 
       - name: Package artifact
         run: zip -j FFmpeg-static-arm64.zip "$PREFIX/bin/ffmpeg"
