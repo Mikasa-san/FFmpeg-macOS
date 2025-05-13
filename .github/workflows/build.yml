@@ -58,7 +58,7 @@ jobs:
             --disable-indev=x11grab \
             --disable-indev=x11grab_xcb \
             --disable-indev=qtkit \
-            --disable-xlib \
+            --disable-xlib 
           make -j$(sysctl -n hw.ncpu)
           make install
 
