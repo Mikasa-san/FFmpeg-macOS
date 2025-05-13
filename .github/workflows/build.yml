@@ -17,6 +17,8 @@ on:
 jobs:
   build:
     runs-on: macos-14
+    env:
+      PREFIX: "${{ github.workspace }}/ffmpeg_build"
 
     steps:
       - name: Checkout repo
@@ -62,7 +64,7 @@ jobs:
             --enable-libsvtav1 \
             --enable-libharfbuzz \
             --enable-libkvazaar \
-            --pkg-config-flags=--static \
+            --pkg-config-flags="--static" \
             --enable-ffplay \
             --enable-postproc \
             --enable-neon \
@@ -72,14 +74,13 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
 
-      - name: Strip binary
-        run: strip /Volumes/tempdisk/sw/bin/ffmpeg
-
-      - name: Verify dependencies
-        run: otool -L /Volumes/tempdisk/sw/bin/ffmpeg
+      - name: Strip & verify
+        run: |
+          strip "$PREFIX/bin/ffmpeg"
+          otool -L "$PREFIX/bin/ffmpeg"
 
       - name: Package artifact
-        run: zip -j FFmpeg-custom-arm64.zip /Volumes/tempdisk/sw/bin/ffmpeg
+        run: zip -j FFmpeg-custom-arm64.zip "$PREFIX/bin/ffmpeg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
