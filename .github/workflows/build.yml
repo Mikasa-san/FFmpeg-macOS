@@ -9,10 +9,10 @@ on:
     tags:
       - '*'
     paths-ignore:
-      - '**.md'
+      - '**/*.md'
   pull_request:
     paths-ignore:
-      - '**.md'
+      - '**/*.md'
 
 jobs:
   build:
@@ -57,21 +57,17 @@ jobs:
             --disable-indev=qtkit \
             --disable-indev=x11grab \
             --disable-indev=x11grab_xcb \
-            --disable-indev=qtkit \
-            --disable-xlib 
+            --disable-xlib
           make -j$(sysctl -n hw.ncpu)
           make install
 
       - name: Strip & verify
         run: |
           strip "$PREFIX/bin/ffmpeg"
-          otool -L "$PREFIX/bin/ffmpeg"   # should no longer reference /opt/homebrew/opt/libX11/lib/libX11.6.dylib
+          otool -L "$PREFIX/bin/ffmpeg"   # verifies no libX11 or libxcb
 
-      - name: Package artifact
-        run: zip -j FFmpeg-static-arm64.zip "$PREFIX/bin/ffmpeg"
-
-      - name: Upload artifact
+      - name: Upload ffmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: FFmpeg-static-arm64
-          path: FFmpeg-static-arm64.zip
+          name: ffmpeg-static-arm64
+          path: ${{ env.PREFIX }}/bin/ffmpeg
