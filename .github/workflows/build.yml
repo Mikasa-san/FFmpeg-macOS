@@ -1,7 +1,6 @@
 name: Build FFmpeg (macOS ARM64 static)
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
@@ -13,25 +12,23 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build-FFmpeg-${{ matrix.tag }}-arm64
-    runs-on: macos-14          # M1-powered ARM64 runner
+    runs-on: macos-14-arm64
     strategy:
       matrix:
         include:
-          - tag: 3.6.0
+          - tag: latest
 
     env:
-      # ensure all C/C++ builds target arm64
       CFLAGS:  "-arch arm64"
       LDFLAGS: "-arch arm64"
-      # install prefix
       PREFIX:  "${{ github.workspace }}/ffmpeg_build"
 
     steps:
-      - name: Checkout CI repo
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Install Homebrew & tools
@@ -39,11 +36,10 @@ jobs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install nasm pkg-config yasm
 
-      - name: Clone FFmpeg source
-        run: |
-          git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
+      - name: Clone FFmpeg source (default branch)
+        run: git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
 
-      - name: Configure FFmpeg (static)
+      - name: Configure & build FFmpeg (static)
         working-directory: ffmpeg
         run: |
           ./configure \
@@ -53,30 +49,26 @@ jobs:
             --disable-debug \
             --enable-pic \
             --disable-doc \
-            --disable-programs                # only build libraries; we'll build the ffmpeg binary next
+            --disable-ffplay      # skip ffplay, only build the ffmpeg CLI
           make -j$(sysctl -n hw.ncpu)
           make install
 
-      - name: Build ffmpeg binary
+      - name: Strip & verify
         run: |
-          # Link against the static libs we just installed
-          gcc $CFLAGS $LDFLAGS \
-            -o ffmpeg \
-            ffmpeg/tools/ffmpeg.c \
-            -I"$PREFIX/include" \
-            -L"$PREFIX/lib" -lavformat -lavcodec -lavutil -lswresample -lswscale
-
-      - name: Strip and verify
-        run: |
-          strip ffmpeg
-          otool -L ffmpeg   # should only list system dylibs
+          strip "$PREFIX/bin/ffmpeg"
+          otool -L "$PREFIX/bin/ffmpeg"   # should only reference system dylibs
 
       - name: Package artifact
-        run: zip -j FFmpeg-${{ matrix.tag }}-arm64-static.zip ffmpeg
+        run: zip -j FFmpeg-${{ matrix.tag }}-arm64-static.zip "$PREFIX/bin/ffmpeg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFmpeg-${{ matrix.tag }}-arm64-static
           path: FFmpeg-${{ matrix.tag }}-arm64-static.zip
-          
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: FFmpeg-${{ matrix.tag }}-arm64-static.zip
