@@ -29,7 +29,7 @@ jobs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install nasm pkg-config yasm \
             libvmaf openjpeg opus lame x264 x265 libvpx webp libass \
-            freetype fontconfig libtheora libvorbis snappy aom libvidstab \
+            freetype fontconfig theora libvorbis snappy aom libvidstab \
             zimg svt-av1 harfbuzz kvazaar
 
       - name: Clone FFmpeg source
