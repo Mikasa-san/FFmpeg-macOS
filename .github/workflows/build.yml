@@ -44,7 +44,6 @@ jobs:
             --disable-debug \
             --enable-pic \
             --disable-doc \
-            --disable-programs \
             --disable-ffplay \
             --disable-avdevice \
             --disable-devices \
