@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - tag: n5.0.1
+          - tag: 3.6.0
 
     env:
       # ensure all C/C++ builds target arm64
