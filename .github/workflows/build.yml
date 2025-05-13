@@ -1,4 +1,4 @@
-name: Build FFmpeg (macOS ARM64 custom)
+name: Build FFmpeg (macOS ARM64 static)
 
 on:
   workflow_dispatch:
@@ -16,73 +16,62 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-14-arm64
     env:
-      PREFIX: "${{ github.workspace }}/ffmpeg_build"
+      CFLAGS:  "-arch arm64"
+      LDFLAGS: "-arch arm64"
+      PREFIX:  "${{ github.workspace }}/ffmpeg_build"
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Homebrew & build tools
+      - name: Install Homebrew & tools
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install nasm pkg-config yasm \
-            libvmaf openjpeg opus lame x264 x265 libvpx webp libass \
-            freetype fontconfig theora libvorbis snappy aom libvidstab \
-            zimg svt-av1 harfbuzz kvazaar
+          brew install nasm pkg-config yasm
 
-      - name: Clone FFmpeg source
+      - name: Clone FFmpeg source (default branch)
         run: git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
 
-      - name: Configure & build FFmpeg
+      - name: Configure & build FFmpeg (fully static, no X11/libxcb)
         working-directory: ffmpeg
         run: |
           ./configure \
             --prefix="$PREFIX" \
-            --extra-cflags=-fno-stack-check \
-            --arch=arm64 \
-            --cc=/usr/bin/clang \
-            --enable-gpl \
-            --enable-libvmaf \
-            --enable-libopenjpeg \
-            --enable-libopus \
-            --enable-libmp3lame \
-            --enable-libx264 \
-            --enable-libx265 \
-            --enable-libvpx \
-            --enable-libwebp \
-            --enable-libass \
-            --enable-libfreetype \
-            --enable-fontconfig \
-            --enable-libtheora \
-            --enable-libvorbis \
-            --enable-libsnappy \
-            --enable-libaom \
-            --enable-libvidstab \
-            --enable-libzimg \
-            --enable-libsvtav1 \
-            --enable-libharfbuzz \
-            --enable-libkvazaar \
-            --pkg-config-flags="--static" \
-            --enable-ffplay \
-            --enable-neon \
-            --enable-runtime-cpudetect \
+            --disable-shared \
+            --enable-static \
+            --disable-debug \
+            --enable-pic \
+            --disable-doc \
+            --disable-ffplay \
+            --disable-avdevice \
+            --disable-devices \
+            --disable-indevs \
+            --disable-outdevs \
+            --disable-libxcb \
+            --disable-libxcb-shm \
+            --disable-libxcb-xfixes \
+            --disable-libfreetype \
+            --disable-libfontconfig \
             --disable-indev=qtkit \
-            --disable-indev=x11grab_xcb
+            --disable-indev=x11grab \
+            --disable-indev=x11grab_xcb \
+            --disable-indev=qtkit \
+            --disable-xlib \
           make -j$(sysctl -n hw.ncpu)
           make install
 
       - name: Strip & verify
         run: |
           strip "$PREFIX/bin/ffmpeg"
-          otool -L "$PREFIX/bin/ffmpeg"
+          otool -L "$PREFIX/bin/ffmpeg"   # should no longer reference /opt/homebrew/opt/libX11/lib/libX11.6.dylib
 
       - name: Package artifact
-        run: zip -j FFmpeg-custom-arm64.zip "$PREFIX/bin/ffmpeg"
+        run: zip -j FFmpeg-static-arm64.zip "$PREFIX/bin/ffmpeg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FFmpeg-custom-arm64
-          path: FFmpeg-custom-arm64.zip
+          name: FFmpeg-static-arm64
+          path: FFmpeg-static-arm64.zip
