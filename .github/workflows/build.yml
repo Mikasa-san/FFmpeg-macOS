@@ -1,6 +1,7 @@
 name: Build FFmpeg (macOS ARM64 static)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -12,16 +13,10 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-14
-    strategy:
-      matrix:
-        include:
-          - tag: latest
-
     env:
       CFLAGS:  "-arch arm64"
       LDFLAGS: "-arch arm64"
@@ -39,7 +34,7 @@ jobs:
       - name: Clone FFmpeg source (default branch)
         run: git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
 
-      - name: Configure & build FFmpeg (static)
+      - name: Configure & build FFmpeg (fully static, no X11)
         working-directory: ffmpeg
         run: |
           ./configure \
@@ -49,20 +44,24 @@ jobs:
             --disable-debug \
             --enable-pic \
             --disable-doc \
-            --disable-ffplay      # skip ffplay, only build the ffmpeg CLI
+            --disable-ffplay \
+            --disable-x11grab \
+            --disable-libxcb \
+            --disable-libxcb-shm \
+            --disable-libxcb-xfixes
           make -j$(sysctl -n hw.ncpu)
           make install
 
       - name: Strip & verify
         run: |
           strip "$PREFIX/bin/ffmpeg"
-          otool -L "$PREFIX/bin/ffmpeg"   # should only reference system dylibs
+          otool -L "$PREFIX/bin/ffmpeg"   # should only reference system libraries
 
       - name: Package artifact
-        run: zip -j FFmpeg-${{ matrix.tag }}-arm64-static.zip "$PREFIX/bin/ffmpeg"
+        run: zip -j FFmpeg-static-arm64.zip "$PREFIX/bin/ffmpeg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FFmpeg-${{ matrix.tag }}-arm64-static
-          path: FFmpeg-${{ matrix.tag }}-arm64-static.zip
+          name: FFmpeg-static-arm64
+          path: FFmpeg-static-arm64.zip
