@@ -75,7 +75,7 @@ jobs:
         run: zip -j FFmpeg-${{ matrix.tag }}-arm64-static.zip ffmpeg
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: FFmpeg-${{ matrix.tag }}-arm64-static
           path: FFmpeg-${{ matrix.tag }}-arm64-static.zip
